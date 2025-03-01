@@ -3,12 +3,11 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// ✅ PORT を number 型に変換
 const PORT: number = Number(process.env.PORT) || 3001;
 
 const io = new Server({
   cors: {
-    origin: "*", // 全てのオリジンからのアクセスを許可
+    origin: "*", // すべてのオリジンを許可（本番環境では制限する）
   },
 });
 
@@ -17,7 +16,7 @@ io.on("connection", (socket) => {
 
   socket.on("message", (data) => {
     console.log("💬 メッセージ受信:", data);
-    io.emit("message", data); // 全クライアントにブロードキャスト
+    io.emit("message", data); // すべてのクライアントに送信
   });
 
   socket.on("disconnect", () => {
@@ -25,6 +24,6 @@ io.on("connection", (socket) => {
   });
 });
 
-io.listen(PORT); // ✅ ここでエラーが出ないようにする
+io.listen(PORT);
 
 console.log(`🚀 WebSocket サーバーがポート ${PORT} で起動しました！`);
