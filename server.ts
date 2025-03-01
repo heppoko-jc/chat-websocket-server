@@ -1,35 +1,30 @@
 import { Server } from "socket.io";
-import http from "http";
 import dotenv from "dotenv";
-import express from "express";
-import cors from "cors";
 
 dotenv.config();
 
-const PORT = process.env.PORT || 3001;
-const app = express();
-app.use(cors());
+// ✅ PORT を number 型に変換
+const PORT: number = Number(process.env.PORT) || 3001;
 
-const server = http.createServer(app);
-const io = new Server(server, {
+const io = new Server({
   cors: {
-    origin: "*", // すべてのオリジンを許可（必要に応じて制限）
+    origin: "*", // 全てのオリジンからのアクセスを許可
   },
 });
 
 io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
+  console.log("✅ ユーザーが接続:", socket.id);
 
-  socket.on("sendMessage", (message) => {
-    console.log("New message:", message);
-    io.emit("receiveMessage", message);
+  socket.on("message", (data) => {
+    console.log("💬 メッセージ受信:", data);
+    io.emit("message", data); // 全クライアントにブロードキャスト
   });
 
   socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id);
+    console.log("❌ ユーザーが切断:", socket.id);
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`🚀 WebSocket Server running on port ${PORT}`);
-});
+io.listen(PORT); // ✅ ここでエラーが出ないようにする
+
+console.log(`🚀 WebSocket サーバーがポート ${PORT} で起動しました！`);
