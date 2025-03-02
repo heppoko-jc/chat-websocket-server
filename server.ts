@@ -1,23 +1,27 @@
-import { Server } from "socket.io";
 import express from "express";
-import http from "http";
+import { createServer } from "http";
+import { Server } from "socket.io";
 import cors from "cors";
+import dotenv from "dotenv";
+
+// 環境変数をロード
+dotenv.config();
 
 const app = express();
-const server = http.createServer(app);
-
-const io = new Server(server, {
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
   cors: {
-    origin: "*",
+    origin: "*", // ✅ どこからでも接続可能（本番では制限する）
   },
 });
 
+// WebSocket の処理
 io.on("connection", (socket) => {
   console.log("⚡️ ユーザーが接続しました");
 
   socket.on("sendMessage", (message) => {
     console.log("📩 新しいメッセージ:", message);
-    io.emit("receiveMessage", message); // ✅ すべてのクライアントに送信
+    io.emit("receiveMessage", message); // ✅ 全クライアントに送信
   });
 
   socket.on("disconnect", () => {
@@ -25,5 +29,8 @@ io.on("connection", (socket) => {
   });
 });
 
+// サーバーのポート
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => console.log(`🚀 WebSocket サーバー起動 (ポート: ${PORT})`));
+httpServer.listen(PORT, () => {
+  console.log(`🚀 WebSocket サーバーが起動しました (ポート: ${PORT})`);
+});
