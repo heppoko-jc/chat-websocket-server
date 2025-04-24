@@ -11,20 +11,28 @@ dotenv.config();
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-  cors: { origin: "*" },
+  cors: { origin: "*" }, // 開発中はワイルドカード、本番では適切に制限してください
 });
 
-// WebSocket の処理
 io.on("connection", (socket) => {
-  console.log("⚡️ ユーザーが接続しました");
+  console.log("⚡️ ユーザーが接続しました:", socket.id);
 
+  // クライアントが sendMessage を emit してきたら、
+  // 全クライアントに newMessage イベントで流す
   socket.on("sendMessage", (message) => {
     console.log("📩 新しいメッセージ:", message);
-    io.emit("receiveMessage", message); // UI 更新用
+    io.emit("newMessage", message);
+  });
+
+  // 将来、マッチ成立時に API サーバー側から "matchEstablished" イベントを受け取ったら
+  // 全クライアントに newMatch イベントで通知
+  socket.on("matchEstablished", (data) => {
+    console.log("🎉 マッチング成立通知:", data);
+    io.emit("newMatch", data);
   });
 
   socket.on("disconnect", () => {
-    console.log("❌ ユーザーが切断しました");
+    console.log("❌ ユーザーが切断しました:", socket.id);
   });
 });
 
