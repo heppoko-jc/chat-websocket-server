@@ -5,30 +5,33 @@ import { Server } from "socket.io";
 import cors from "cors";
 import dotenv from "dotenv";
 
-// 環境変数をロード
 dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-  cors: { origin: "*" }, // 開発中はワイルドカード、本番では適切に制限してください
+  cors: { origin: "*" }, // 本番環境では適切に制限してください
 });
 
 io.on("connection", (socket) => {
   console.log("⚡️ ユーザーが接続しました:", socket.id);
 
-  // クライアントが sendMessage を emit してきたら、
-  // 全クライアントに newMessage イベントで流す
-  socket.on("sendMessage", (message) => {
-    console.log("📩 新しいメッセージ:", message);
-    io.emit("newMessage", message);
+  // クライアントがチャットルームに参加するとき
+  socket.on("joinChat", (chatId: string) => {
+    socket.join(chatId);
+    console.log(`🔑 ソケット ${socket.id} がチャット ${chatId} に参加`);
   });
 
-  // 将来、マッチ成立時に API サーバー側から "matchEstablished" イベントを受け取ったら
-  // 全クライアントに newMatch イベントで通知
-  socket.on("matchEstablished", (data) => {
+  // メッセージ送信イベント：同じチャットIDのルームにのみ流す
+  socket.on("sendMessage", (message: { chatId: string; [key: string]: any }) => {
+    console.log("📩 新しいメッセージ:", message);
+    io.to(message.chatId).emit("newMessage", message);
+  });
+
+  // マッチ成立イベント：同じチャットIDのルームにのみ流す
+  socket.on("matchEstablished", (data: { chatId: string; [key: string]: any }) => {
     console.log("🎉 マッチング成立通知:", data);
-    io.emit("newMatch", data);
+    io.to(data.chatId).emit("newMatch", data);
   });
 
   socket.on("disconnect", () => {
