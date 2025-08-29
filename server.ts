@@ -8,38 +8,55 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
+app.use(cors({ origin: "*" }));
+
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-  cors: { origin: "*" }, // 本番環境では適切に制限してください
+  cors: { origin: "*" },
 });
 
 io.on("connection", (socket) => {
-  console.log("⚡️ ユーザーが接続しました:", socket.id);
+  console.log("⚡️ connected:", socket.id);
 
-  // クライアントがチャットルームに参加するとき
+  // 追加: ユーザー固有ルームに参加（チャット一覧画面が使う）
+  socket.on("setUserId", (userId: string) => {
+    if (!userId) return;
+    socket.join(`user:${userId}`);
+    console.log(`👤 ${socket.id} joined user room user:${userId}`);
+  });
+
+  // 既存: チャットルーム参加
   socket.on("joinChat", (chatId: string) => {
+    if (!chatId) return;
     socket.join(chatId);
-    console.log(`🔑 ソケット ${socket.id} がチャット ${chatId} に参加`);
+    console.log(`🔑 ${socket.id} joined chat ${chatId}`);
   });
 
-  // メッセージ送信イベント：同じチャットIDのルームにのみ流す
-  socket.on("sendMessage", (message: { chatId: string; [key: string]: any }) => {
-    console.log("📩 新しいメッセージ:", message);
-    io.to(message.chatId).emit("newMessage", message);
+  // 変更: 受け取ったメッセージを部屋へリレー + 受信者ユーザールームにもリレー
+  socket.on("sendMessage", (payload: { chatId: string; toUserId?: string; [k: string]: any }) => {
+    if (!payload?.chatId) return;
+    console.log("📩 relay message:", payload);
+    io.to(payload.chatId).emit("newMessage", payload);
+    if (payload.toUserId) {
+      io.to(`user:${payload.toUserId}`).emit("newMessage", payload);
+    }
   });
 
-  // マッチ成立イベント：同じチャットIDのルームにのみ流す
-  socket.on("matchEstablished", (data: { chatId: string; [key: string]: any }) => {
-    console.log("🎉 マッチング成立通知:", data);
-    io.to(data.chatId).emit("newMatch", data);
+  // 変更: マッチ通知のイベント名をクライアントに合わせる
+  socket.on("matchEstablished", (data: { chatId?: string; targetUserId?: string; [k: string]: any }) => {
+    console.log("🎉 relay matchEstablished:", data);
+    if (data.chatId) io.to(data.chatId).emit("matchEstablished", data);
+    if (data.targetUserId) io.to(`user:${data.targetUserId}`).emit("matchEstablished", data);
+    // 後方互換: 旧イベント名も投げておく（不要なら消してOK）
+    if (data.chatId) io.to(data.chatId).emit("newMatch", data);
   });
 
   socket.on("disconnect", () => {
-    console.log("❌ ユーザーが切断しました:", socket.id);
+    console.log("❌ disconnected:", socket.id);
   });
 });
 
 const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
-  console.log(`🚀 WebSocket サーバーが起動しました (ポート: ${PORT})`);
+  console.log(`🚀 WS server on :${PORT}`);
 });
